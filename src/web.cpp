@@ -155,7 +155,7 @@ void Web::handle_get_settings(AsyncWebServerRequest *request) {
             _settings->get_mqtt_telemetry_topic() : nullptr
     );
     if (_settings->is_vellez_address_overridden()) {
-        overrides["vellez_address"] = _settings->get_vellez_address();
+        overrides["vellez_address"] = _settings->get_vellez_address() + 1;
     } else {
         overrides["vellez_address"] = nullptr;
     }
