@@ -9,9 +9,10 @@ void Vellez::begin(Stream &stream, uint8_t tx_en_pin, uint8_t vellez_address, bo
     enable_processing = true;
     enable_gong = gong;
     enabled_zones = zones;
+    last_pkt_at = 0;
 }
 
-void Vellez::set_callback(Vellez::callback_t callback) {
+void Vellez::set_callback(void_bool_callback_t callback) {
     callback_function = std::move(callback);
 }
 
@@ -23,7 +24,7 @@ void Vellez::set_gong(bool gong) {
     enable_gong = gong;
 }
 
-void Vellez::set_zones(uint8_t zones) {
+void Vellez::set_zones(uint16_t zones) {
     enabled_zones = zones;
 }
 
@@ -49,12 +50,13 @@ void Vellez::process() {
             }
             if (bytes_received == VELLEZ_POLL_SIZE) {
                 pkt_complete = true;
+                last_pkt_at = micros();
             }
         }
     }
     if (pkt_complete) {
-        if (in_pkt[0] == VELLEZ_POLL_HEADER && in_pkt[1] == address && verify_checksum()) {
-            delayMicroseconds(160);
+        unsigned long now = micros();
+        if (now - last_pkt_at >= 160 && in_pkt[0] == VELLEZ_POLL_HEADER && in_pkt[1] == address && verify_checksum()) {
             digitalWrite(tx_enable_pin, HIGH);
             write_header();
             uint8 mode = VELLEZ_MODE_IDLE;
@@ -75,6 +77,7 @@ void Vellez::process() {
             digitalWrite(tx_enable_pin, LOW);
             callback_function(in_pkt[2] == true);
             pkt_complete = false;
+            last_pkt_at = 0;
         }
     }
 }

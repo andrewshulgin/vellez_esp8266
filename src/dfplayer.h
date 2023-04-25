@@ -3,6 +3,9 @@
 
 #include <Stream.h>
 
+#include "callbacks.h"
+#include "def_limits.h"
+
 #define DFPLAYER_PKT_LENGTH 10
 
 #define DFPLAYER_PKT_START 0x7E
@@ -19,9 +22,8 @@
 
 class DFPlayer {
 public:
-    typedef std::function<void(bool)> callback_t;
     void begin(Stream &stream);
-    void set_callback(callback_t callback);
+    void set_callback(void_bool_callback_t callback);
     void reset();
     void set_volume(uint8_t volume);
     void play(uint16_t track);
@@ -51,7 +53,7 @@ private:
     bool need_play;
     bool need_stop;
 
-    callback_t callback_function;
+    void_bool_callback_t callback_function;
 
     enum pkt_parse_sequence {
         start,

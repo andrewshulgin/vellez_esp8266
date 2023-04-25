@@ -6,8 +6,10 @@
 #include <Esp.h>
 #include <EEPROM.h>
 
+#include "def_limits.h"
+
 #define EEPROM_START_ADDRESS 0
-#define SETTINGS_STRING_SIZE 32
+#define SETTINGS_STRING_SIZE (LIMIT_SETTINGS_MAX_STRING_LENGTH + 1)
 #define DEFAULT_VELLEZ_ADDRESS 0
 #define DEFAULT_VOLUME 15
 #define DEFAULT_GONG_ENABLED 0

@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 
+#include "callbacks.h"
+
 #define VELLEZ_BAUD_RATE 115200
 
 #define VELLEZ_POLL_SIZE 4
@@ -19,12 +21,11 @@
 
 class Vellez {
 public:
-    typedef std::function<void(bool)> callback_t;
     void begin(Stream &stream, uint8_t tx_en_pin, uint8_t addr, bool gong, uint16_t zones);
-    void set_callback(callback_t callback);
+    void set_callback(void_bool_callback_t callback);
     void set_address(uint8_t addr);
     void set_gong(bool gong);
-    void set_zones(uint8_t zones);
+    void set_zones(uint16_t zones);
     void activate();
     void deactivate();
     void process();
@@ -35,13 +36,14 @@ private:
     bool keep_active;
     bool pkt_complete;
     bool enable_gong;
+    unsigned long last_pkt_at;
     uint8_t address;
     uint16_t enabled_zones;
     uint8_t tx_enable_pin;
     uint8_t in_pkt[VELLEZ_POLL_SIZE];
     uint8_t bytes_received;
     uint8_t checksum;
-    callback_t callback_function;
+    void_bool_callback_t callback_function;
     bool verify_checksum();
     void write_header();
     void write(uint8_t byte);

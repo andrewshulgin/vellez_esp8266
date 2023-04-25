@@ -1,23 +1,32 @@
 #include "Failsafe.h"
 
-Failsafe::Failsafe(WiFiManager *wifiManager, Settings *settings, uint8_t btn1_pin, uint8_t btn2_pin, uint8_t led_pin, bool inverted) {
+Failsafe::Failsafe(
+        WiFiManager *wifiManager,
+        Settings *settings,
+        uint8_t btn1_pin,
+        uint8_t btn2_pin,
+        uint8_t led_pin,
+        bool buttons_inverted,
+        bool led_inverted
+) {
     this->_wifiManger = wifiManager;
     this->_settings = settings;
     this->_btn1_pin = btn1_pin;
     this->_btn2_pin = btn2_pin;
     this->_led_pin = led_pin;
-    this->_inverted = inverted;
+    this->_buttons_inverted = buttons_inverted;
+    this->_led_inverted = led_inverted;
     this->btn1_pressed = false;
     this->btn2_pressed = false;
 }
 
-void Failsafe::toggle_led(const bool on) {
-    digitalWrite(this->_led_pin, on ^ !this->_inverted);
+void Failsafe::toggle_led(bool on) const {
+    digitalWrite(this->_led_pin, on ^ !this->_led_inverted);
 }
 
 void Failsafe::read_buttons() {
-    this->btn1_pressed = digitalRead(this->_btn1_pin) == !this->_inverted;
-    this->btn2_pressed = digitalRead(this->_btn2_pin) == !this->_inverted;
+    this->btn1_pressed = digitalRead(this->_btn1_pin) == !this->_buttons_inverted;
+    this->btn2_pressed = digitalRead(this->_btn2_pin) == !this->_buttons_inverted;
 }
 
 void Failsafe::start_config_portal() {
@@ -45,7 +54,7 @@ bool Failsafe::handle_startup() {
     pinMode(this->_btn1_pin, INPUT_PULLUP);
     pinMode(this->_btn2_pin, INPUT_PULLUP);
     pinMode(this->_led_pin, OUTPUT);
-    digitalWrite(this->_led_pin, this->_inverted);
+    digitalWrite(this->_led_pin, this->_led_inverted);
     int counter = 0;
     bool led_on = true;
     read_buttons();

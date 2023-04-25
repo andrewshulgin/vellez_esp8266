@@ -8,7 +8,15 @@
 
 class Failsafe {
 public:
-    Failsafe(WiFiManager *wifiManager, Settings *settings, uint8_t btn1_pin, uint8_t btn2_pin, uint8_t led_pin, bool inverted);
+    Failsafe(
+            WiFiManager *wifiManager,
+            Settings *settings,
+            uint8_t btn1_pin,
+            uint8_t btn2_pin,
+            uint8_t led_pin,
+            bool buttons_inverted,
+            bool led_inverted
+    );
     bool handle_startup();
 private:
     WiFiManager *_wifiManger;
@@ -16,10 +24,11 @@ private:
     uint8_t _btn1_pin;
     uint8_t _btn2_pin;
     uint8_t _led_pin;
-    bool _inverted;
+    bool _buttons_inverted;
+    bool _led_inverted;
     bool btn1_pressed;
     bool btn2_pressed;
-    void toggle_led(bool on);
+    void toggle_led(bool on) const;
     void read_buttons();
     void start_config_portal();
     void reset();

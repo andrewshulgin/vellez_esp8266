@@ -38,15 +38,31 @@ void Web::begin(Settings &settings) {
     server->begin();
 }
 
-void Web::set_start_callback(Web::start_callback_t callback) {
-    start_callback = std::move(callback);
+void Web::set_vellez_address_callback(void_uint8_callback_t callback) {
+    vellez_address_callback = std::move(callback);
 }
 
-void Web::set_stop_callback(Web::callback_t callback) {
+void Web::set_vellez_gong_callback(void_bool_callback_t callback) {
+    vellez_gong_callback = std::move(callback);
+}
+
+void Web::set_vellez_zones_callback(void_uint16_callback_t callback) {
+    vellez_zones_callback = std::move(callback);
+}
+
+void Web::set_volume_callback(void_uint8_callback_t callback) {
+    volume_callback = std::move(callback);
+}
+
+void Web::set_play_callback(void_uint8_callback_t callback) {
+    play_callback = std::move(callback);
+}
+
+void Web::set_stop_callback(void_callback_t callback) {
     stop_callback = std::move(callback);
 }
 
-void Web::set_reboot_callback(Web::callback_t callback) {
+void Web::set_reboot_callback(void_callback_t callback) {
     reboot_callback = std::move(callback);
 }
 
@@ -384,6 +400,9 @@ void Web::handle_patch_settings(AsyncWebServerRequest *request, JsonVariant &jso
                 [this](uint8 value) { _settings->set_vellez_address(value - 1); },
                 [this]() { _settings->clear_vellez_address(); }
         );
+        if (valid) {
+            vellez_address_callback(_settings->get_vellez_address());
+        }
     }
     if (valid && overrides.containsKey("gong")) {
         valid = put_bool(
@@ -392,6 +411,9 @@ void Web::handle_patch_settings(AsyncWebServerRequest *request, JsonVariant &jso
                 [this](bool value) { _settings->set_vellez_gong_enabled(value); },
                 [this]() { _settings->clear_vellez_gong_enabled(); }
         );
+        if (valid) {
+            vellez_gong_callback(_settings->get_vellez_gong_enabled());
+        }
     }
     if (valid && overrides.containsKey("volume")) {
         valid = put_uint8(
@@ -400,6 +422,9 @@ void Web::handle_patch_settings(AsyncWebServerRequest *request, JsonVariant &jso
                 [this](uint8 value) { _settings->set_volume(value); },
                 [this]() { _settings->clear_volume(); }
         );
+        if (valid) {
+            volume_callback(_settings->get_volume());
+        }
     }
     if (valid && overrides.containsKey("vellez_zones")) {
         valid = put_uint16(
@@ -408,6 +433,9 @@ void Web::handle_patch_settings(AsyncWebServerRequest *request, JsonVariant &jso
                 [this](uint16_t value) { _settings->set_vellez_zones(value); },
                 [this]() { _settings->clear_vellez_zones(); }
         );
+        if (valid) {
+            vellez_zones_callback(_settings->get_vellez_zones());
+        }
     }
     if (!valid) {
         _settings->discard_changes();
@@ -422,18 +450,18 @@ void Web::handle_patch_settings(AsyncWebServerRequest *request, JsonVariant &jso
 void Web::handle_play(AsyncWebServerRequest *request, JsonVariant &json) {
     if (!request->authenticate(_settings->get_web_username(), _settings->get_web_password()))
         return request->requestAuthentication();
-    if (this->start_callback == nullptr) {
+    if (this->play_callback == nullptr) {
         return request->send(404);
     }
     JsonObject root = json.as<JsonObject>();
-    if (!root.containsKey("track_num") || !root["track_num"].is<uint8_t>()) {
+    if (!root.containsKey("track_num") || !root["track_num"].is<uint16_t>()) {
         return request->send(400);
     }
-    uint8_t track_num = root["track_num"].as<uint8_t>();
-    if (track_num > 9) {
+    uint16_t track_num = root["track_num"].as<uint16_t>();
+    if (track_num > LIMIT_DFPLAYER_MAX_TRACK_NUM) {
         return request->send(400);
     }
-    this->start_callback(track_num);
+    this->play_callback(track_num);
     return request->send(204);
 }
 

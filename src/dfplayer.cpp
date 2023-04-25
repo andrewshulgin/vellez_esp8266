@@ -4,7 +4,7 @@ void DFPlayer::begin(Stream &stream) {
     this->_serial = &stream;
     this->_initialized = false;
     this->_track = 0;
-    this->_volume = 30;
+    this->_volume = LIMIT_DFPLAYER_MAX_VOLUME;
     this->_playing = false;
     this->last_request = 0;
     this->last_response = 0;
@@ -15,7 +15,7 @@ void DFPlayer::begin(Stream &stream) {
     this->need_stop = false;
 }
 
-void DFPlayer::set_callback(DFPlayer::callback_t callback) {
+void DFPlayer::set_callback(void_bool_callback_t callback) {
     this->callback_function = std::move(callback);
 }
 
@@ -24,7 +24,7 @@ void DFPlayer::reset() {
 }
 
 void DFPlayer::set_volume(uint8_t volume) {
-    this->_volume = volume <= 30 ? volume : 30;
+    this->_volume = volume <= LIMIT_DFPLAYER_MAX_VOLUME ? volume : LIMIT_DFPLAYER_MAX_VOLUME;
     this->need_set_volume = true;
 }
 

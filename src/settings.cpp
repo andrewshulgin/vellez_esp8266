@@ -200,7 +200,7 @@ uint8_t Settings::get_vellez_gong_enabled() const {
 }
 
 uint8_t Settings::get_volume() {
-    return override_settings.volume <= 30 ?
+    return override_settings.volume <= LIMIT_DFPLAYER_MAX_VOLUME ?
            override_settings.volume : default_settings.volume;
 }
 
@@ -367,7 +367,7 @@ bool Settings::set_vellez_gong_enabled(uint8_t gong) {
 }
 
 bool Settings::set_volume(uint8_t volume) {
-    if (volume > 30) {
+    if (volume > LIMIT_DFPLAYER_MAX_VOLUME) {
         clear_volume();
         return false;
     }

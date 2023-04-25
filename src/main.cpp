@@ -5,14 +5,15 @@
 
 #define WEBSERVER_H
 
+#include "failsafe.h"
 #include "status_led.h"
+#include "buttons.h"
 #include "vellez.h"
+#include "dfplayer.h"
+#include "settings.h"
 #include "tls.h"
 #include "ota.h"
 #include "mqtt.h"
-#include "dfplayer.h"
-#include "failsafe.h"
-#include "settings.h"
 #include "web.h"
 
 #ifdef EXTERNAL_LED
@@ -27,32 +28,40 @@
 #define BUTTON_1_PIN 14
 #define BUTTON_2_PIN 16
 
+#ifndef LED_INVERTED
+#define LED_INVERTED true
+#endif
+
+#ifndef BUTTONS_INVERTED
+#define BUTTONS_INVERTED true
+#endif
+
 #define DFPLAYER_BAUD_RATE 9600
 
 #define FIRMWARE_VERSION "0.1"
 
 bool time_synced = false;
 bool update_checked = false;
-
 bool mqtt_initialized = false;
-bool mqtt_activation_enabled = true;
+bool vellez_active = false;
+bool playing = false;
 
 bool reboot_pending = false;
 bool stop_pending = false;
 bool start_pending = false;
 
-bool activated_locally = false;
-bool vellez_active = false;
-bool playing = false;
-
-uint8_t message;
+uint16_t pending_track = 0;
+bool pending_gong_enabled = false;
+uint16_t pending_zones = 0;
+uint8_t pending_volume = 0;
 
 BearSSL::X509List x509(trusted_tls_ca);
 
 WiFiManager wifiManager;
 Settings settings;
-Failsafe failsafe(&wifiManager, &settings, BUTTON_1_PIN, BUTTON_2_PIN, STATUS_LED_PIN, true);
+Failsafe failsafe(&wifiManager, &settings, BUTTON_1_PIN, BUTTON_2_PIN, STATUS_LED_PIN, BUTTONS_INVERTED, LED_INVERTED);
 StatusLED statusLed;
+Buttons buttons(BUTTON_1_PIN, BUTTON_2_PIN, BUTTONS_INVERTED);
 SoftwareSerial dfPlayerSerial(DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
 DFPlayer dfPlayer;
 Vellez vellez;
@@ -85,12 +94,14 @@ void process_audio() {
         playing = false;
     }
     if (start_pending) {
+        vellez.set_gong(pending_gong_enabled);
+        vellez.set_zones(pending_zones);
+        vellez.activate();
         if (vellez_active) {
-            dfPlayer.play(message);
+            dfPlayer.set_volume(pending_volume);
+            dfPlayer.play(pending_track);
             start_pending = false;
             playing = true;
-        } else {
-            vellez.activate();
         }
     }
     if (!start_pending && !playing) {
@@ -98,135 +109,61 @@ void process_audio() {
     }
 }
 
-void time_sync_callback() {
-    time_synced = true;
+void mqtt_play_callback(uint16_t track, bool gong, uint8_t volume, uint16_t zones) {
+    pending_track = track;
+    pending_gong_enabled = gong;
+    pending_volume = volume;
+    pending_zones = zones;
+    start_pending = true;
 }
 
-void vellez_callback(bool active) {
-    vellez_active = active;
-    if (!active) {
-        vellez.set_gong(settings.get_vellez_gong_enabled());
-        vellez.set_zones(settings.get_vellez_zones());
-    }
+void start_playback(uint16_t track) {
+    pending_track = track;
+    pending_gong_enabled = settings.get_vellez_gong_enabled();
+    pending_volume = settings.get_volume();
+    pending_zones = settings.get_vellez_zones();
+    start_pending = true;
 }
 
-void dfplayer_callback(bool state) {
-    playing = state;
-}
-
-void mqtt_toggle_callback(bool enabled) {
-    mqtt_activation_enabled = enabled;
-}
-
-void mqtt_address_callback(uint8_t address) {
-    if (address > 4) {
-        return;
-    }
-    settings.set_vellez_address(address);
-    vellez.set_address(address);
-}
-
-void mqtt_gong_callback(bool gong) {
-    settings.set_vellez_gong_enabled(gong);
-    vellez.set_gong(gong);
-}
-
-void mqtt_generic_topic_callback(char *topic, uint length) {
-    if (topic != nullptr && length == 0) {
-        return;
-    }
-    settings.set_mqtt_generic_topic(topic);
-    mqtt.change_generic_topic(topic);
-}
-
-void mqtt_telemetry_topic_callback(char *topic, uint length) {
-    if (topic != nullptr && length == 0) {
-        return;
-    }
-    settings.set_mqtt_telemetry_topic(topic);
-    mqtt.change_telemetry_topic(topic);
-}
-
-void mqtt_web_username_callback(char *username, uint length) {
-    if (username != nullptr && length == 0) {
-        return;
-    }
-    settings.set_web_username(username);
-}
-
-void mqtt_web_password_callback(char *password, uint length) {
-    if (password != nullptr && length == 0) {
-        return;
-    }
-    settings.set_web_password(password);
-}
-
-void mqtt_volume_callback(uint8_t volume) {
-    if (volume > 30) {
-        volume = 30;
-    }
-    settings.set_volume(volume);
-    dfPlayer.set_volume(volume);
-}
-
-void mqtt_zones_callback(uint16_t zones) {
-    settings.set_vellez_zones(zones);
-    vellez.set_zones(zones);
-}
-
-void mqtt_start_callback(uint8_t msg, bool override_gong, bool override_zones, bool gong, uint16_t zones) {
-    if (mqtt_activation_enabled) {
-        message = msg;
-        start_pending = true;
-        if (override_gong) {
-            vellez.set_gong(gong);
-        }
-        if (override_zones) {
-            vellez.set_zones(zones);
-        }
-        activated_locally = false;
-        vellez.activate();
-    }
-}
-
-void mqtt_stop_callback() {
-    if (!activated_locally) {
+void btn1_callback() {
+    if (!start_pending && !playing) {
+        start_playback(1);
+    } else {
         stop_pending = true;
     }
 }
 
-void reboot_callback() {
-    reboot_pending = true;
-}
-
-void web_start_callback(uint8_t msg) {
-    message = msg;
-    start_pending = true;
-    activated_locally = false;
-    vellez.activate();
-}
-
-void web_stop_callback() {
-    stop_pending = true;
+void btn2_callback() {
+    if (!start_pending && !playing) {
+        start_playback(2);
+    } else {
+        stop_pending = true;
+    }
 }
 
 void setup() {
 #ifdef BUTTONS_CONNECTED
     failsafe.handle_startup();
 #endif
-    statusLed.begin(STATUS_LED_PIN, true);
+    pinMode(AUDIO_OUT_EN_PIN, OUTPUT);
+    statusLed.begin(STATUS_LED_PIN, LED_INVERTED);
     settings.begin();
     update_status_led();
     wifiClientSecure.setTrustAnchors(&x509);
     wifiManager.setConfigPortalBlocking(false);
     wifiManager.autoConnect(settings.get_ap_ssid());
     configTime(settings.get_timezone(), settings.get_ntp_host());
-    settimeofday_cb(time_sync_callback);
+    settimeofday_cb([] { time_synced = true; });
+#ifdef BUTTONS_CONNECTED
+    buttons.begin();
+#endif
+    buttons.set_btn1_callback(btn1_callback);
+    buttons.set_btn2_callback(btn2_callback);
     Serial.begin(VELLEZ_BAUD_RATE);
     Serial.setDebugOutput(false);
     dfPlayerSerial.begin(DFPLAYER_BAUD_RATE);
     dfPlayer.begin(dfPlayerSerial);
-    dfPlayer.set_callback(dfplayer_callback);
+    dfPlayer.set_callback([](bool state) { playing = state; });
     dfPlayer.set_volume(settings.get_volume());
     vellez.begin(
             Serial,
@@ -235,22 +172,21 @@ void setup() {
             settings.get_vellez_gong_enabled(),
             settings.get_vellez_zones()
     );
-    vellez.set_callback(vellez_callback);
-    mqtt.set_toggle_callback(mqtt_toggle_callback);
-    mqtt.set_address_callback(mqtt_address_callback);
-    mqtt.set_gong_callback(mqtt_gong_callback);
-    mqtt.set_generic_topic_callback(mqtt_generic_topic_callback);
-    mqtt.set_telemetry_topic_callback(mqtt_telemetry_topic_callback);
-    mqtt.set_web_username_callback(mqtt_web_username_callback);
-    mqtt.set_web_password_callback(mqtt_web_password_callback);
-    mqtt.set_volume_callback(mqtt_volume_callback);
-    mqtt.set_zones_callback(mqtt_zones_callback);
-    mqtt.set_start_callback(mqtt_start_callback);
-    mqtt.set_stop_callback(mqtt_stop_callback);
-    mqtt.set_reboot_callback(reboot_callback);
-    web.set_start_callback(web_start_callback);
-    web.set_stop_callback(web_stop_callback);
-    web.set_reboot_callback(reboot_callback);
+    vellez.set_callback([](bool active) { vellez_active = active; });
+    mqtt.set_address_callback([](uint8_t address) { vellez.set_address(address); });
+    mqtt.set_gong_callback([](bool gong) { vellez.set_gong(gong); });
+    mqtt.set_volume_callback([](uint8_t volume) { dfPlayer.set_volume(volume); });
+    mqtt.set_zones_callback([](uint16_t zones) { vellez.set_zones(zones); });
+    mqtt.set_play_callback(mqtt_play_callback);
+    mqtt.set_stop_callback([] { stop_pending = true; });
+    mqtt.set_reboot_callback([] { reboot_pending = true; });
+    web.set_vellez_address_callback({[](uint8_t addr) { vellez.set_address(addr); }});
+    web.set_vellez_gong_callback({[](bool gong) { vellez.set_gong(gong); }});
+    web.set_vellez_zones_callback({[](uint16_t zones) { vellez.set_zones(zones); }});
+    web.set_volume_callback({[](uint8_t volume) { dfPlayer.set_volume(volume); }});
+    web.set_play_callback([](uint16_t track) { start_playback(track); });
+    web.set_stop_callback([] { stop_pending = true; });
+    web.set_reboot_callback([] { reboot_pending = true; });
     web.begin(settings);
 }
 
@@ -267,19 +203,13 @@ void loop() {
             update_checked = true;
         }
         if (!mqtt_initialized) {
-            mqtt.begin(
-                    &wifiClientSecure,
-                    settings.get_mqtt_host(),
-                    settings.get_mqtt_port(),
-                    settings.get_mqtt_client_id(),
-                    settings.get_mqtt_generic_topic(),
-                    settings.get_mqtt_telemetry_topic(),
-                    settings.get_mqtt_username(),
-                    settings.get_mqtt_password()
-            );
+            mqtt.begin(wifiClientSecure, settings);
             mqtt_initialized = true;
         }
     }
+#ifdef BUTTONS_CONNECTED
+    buttons.process();
+#endif
     wifiManager.process();
     settings.process();
     vellez.process();
@@ -289,7 +219,7 @@ void loop() {
     dfPlayer.process();
     process_audio();
     update_status_led();
-    if (reboot_pending && !start_pending && !playing) {
+    if (reboot_pending && !playing && !start_pending) {
         EspClass::reset();
     }
 }
