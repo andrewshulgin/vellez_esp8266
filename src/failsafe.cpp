@@ -1,4 +1,4 @@
-#include "Failsafe.h"
+#include "failsafe.h"
 
 Failsafe::Failsafe(
         WiFiManager *wifiManager,
