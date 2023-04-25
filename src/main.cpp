@@ -15,8 +15,11 @@
 #include "settings.h"
 #include "web.h"
 
+#ifdef EXTERNAL_LED
+#define STATUS_LED_PIN 2
+#else
 #define STATUS_LED_PIN LED_BUILTIN
-//#define STATUS_LED_PIN 2
+#endif
 #define VELLEZ_RS485_TX_EN_PIN 4
 #define AUDIO_OUT_EN_PIN 5
 #define DFPLAYER_TX_PIN 12
@@ -208,7 +211,9 @@ void web_stop_callback() {
 }
 
 void setup() {
+#ifdef BUTTONS_CONNECTED
     failsafe.handle_startup();
+#endif
     statusLed.begin(STATUS_LED_PIN, true);
     settings.begin();
     update_status_led();

@@ -350,7 +350,7 @@
     }
 
     function update_zones() {
-        const bin_str = parseInt(current_zones).toString(2).padEnd(16, "0");
+        const bin_str = parseInt(current_zones).toString(2).padStart(16, "0");
         for (let z in bin_str) {
             zone_checkboxes[z].checked = bin_str[z] === "1";
         }
