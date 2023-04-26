@@ -235,7 +235,7 @@
 </fieldset>
 <fieldset id="actions" disabled>
     <legend>Actions</legend>
-    <label>Track <input id="track_num" type="number" min="0" max="2999"></label>
+    <label>Track <input id="track_num" type="number" min="0" max="9"></label>
     <button id="start_playback" onclick="start_playback(this)" disabled>Play</button>
     <button onclick="stop_playback(this)">Stop</button>
     <button onclick="reboot(this)">Reboot</button>
@@ -351,8 +351,8 @@
 
     function update_zones() {
         const bin_str = parseInt(current_zones).toString(2).padStart(16, "0");
-        for (let z in bin_str) {
-            zone_checkboxes[z].checked = bin_str[z] === "1";
+        for (let [i, z] of bin_str.split("").reverse().entries()) {
+            zone_checkboxes[i].checked = z === "1";
         }
         all_zones_checkbox.checked = current_zones === 65535;
     }
@@ -360,7 +360,7 @@
     function read_zones() {
         let bin_str = "";
         for (let i of zone_checkboxes) {
-            bin_str += i.checked ? "1" : "0";
+            bin_str = bin_str + i.checked ? "1" : "0";
         }
         current_zones = parseInt(bin_str, 2);
         all_zones_checkbox.checked = current_zones === 65535;

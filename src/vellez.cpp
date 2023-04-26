@@ -66,8 +66,8 @@ void Vellez::process() {
             if (enabled_zones < VELLEZ_ALL_ZONES) {
                 write(0x10 + address);
                 write(mode);
-                write(enabled_zones & 0xFF);
                 write((enabled_zones >> 8) & 0xFF);
+                write(enabled_zones & 0xFF);
             } else {
                 write(address);
                 write(0x04 + mode);

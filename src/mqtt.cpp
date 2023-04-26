@@ -1,5 +1,13 @@
 #include "mqtt.h"
 
+void reverse(char *start, char *end) {
+    while (end > start) {
+        char ch = *end;
+        *end-- = *start;
+        *start++ = ch;
+    }
+}
+
 MQTT::MQTT() {
     _settings = nullptr;
     _client_id = nullptr;
@@ -85,17 +93,18 @@ void MQTT::process() {
 }
 
 void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
+    char temp_str[LIMIT_SETTINGS_MAX_STRING_LENGTH];
     int gong_pos = -1;
     int volume_pos = -1;
     int zones_pos = -1;
-    uint8_t *track_num_end = nullptr;
-    uint8_t *volume_end = nullptr;
-    uint16_t track_num = 0;
+    char *track_num_end = nullptr;
+    char *volume_end = nullptr;
+    uint16_t track_num;
     bool gong = _settings->get_vellez_gong_enabled();
     uint16_t zones = _settings->get_vellez_zones();
     uint8_t volume = _settings->get_volume();
 
-    if (topic != _telemetry_topic) {
+    if (strcmp(topic, _telemetry_topic) != 0) {
         switch (payload[0]) {
             case MQTT_COMMAND_SET_ZONES:
             case MQTT_COMMAND_SET_ADDRESS:
@@ -147,8 +156,9 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
         case MQTT_COMMAND_SET_WEB_USERNAME:
             if (length == 1) {
                 _settings->clear_web_username();
-            } else if (length > 2 && length < SETTINGS_STRING_SIZE) {
-                _settings->set_web_username((const char *) payload + 1);
+            } else if (length > 2 && length < LIMIT_SETTINGS_MAX_STRING_LENGTH - 1) {
+                snprintf(temp_str, length, "%s", (char *) payload + 1);
+                _settings->set_web_username(temp_str);
             }
             if (web_username_callback != nullptr) {
                 web_username_callback(_settings->get_mqtt_username());
@@ -157,8 +167,9 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
         case MQTT_COMMAND_SET_WEB_PASSWORD:
             if (length == 1) {
                 _settings->clear_web_password();
-            } else if (length > 2 && length < SETTINGS_STRING_SIZE) {
-                _settings->set_web_password((const char *) payload + 1);
+            } else if (length > 2 && length < LIMIT_SETTINGS_MAX_STRING_LENGTH - 1) {
+                snprintf(temp_str, length, "%s", (char *) payload + 1);
+                _settings->set_web_password(temp_str);
             }
             if (web_password_callback != nullptr) {
                 web_password_callback(_settings->get_mqtt_password());
@@ -167,8 +178,9 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
         case MQTT_COMMAND_SET_GENERIC_TOPIC:
             if (length == 1) {
                 _settings->clear_mqtt_generic_topic();
-            } else if (length > 2 && length < SETTINGS_STRING_SIZE) {
-                _settings->set_mqtt_generic_topic((const char *) payload + 1);
+            } else if (length > 2 && length < LIMIT_SETTINGS_MAX_STRING_LENGTH - 1) {
+                snprintf(temp_str, length, "%s", (char *) payload + 1);
+                _settings->set_mqtt_generic_topic(temp_str);
             }
             if (generic_topic_callback != nullptr) {
                 generic_topic_callback(_settings->get_mqtt_generic_topic());
@@ -178,8 +190,9 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
         case MQTT_COMMAND_SET_TELEMETRY_TOPIC:
             if (length == 1) {
                 _settings->clear_mqtt_telemetry_topic();
-            } else if (length > 2 && length < SETTINGS_STRING_SIZE) {
-                _settings->set_mqtt_telemetry_topic((const char *) payload + 1);
+            } else if (length > 2 && length < LIMIT_SETTINGS_MAX_STRING_LENGTH - 1) {
+                snprintf(temp_str, length, "%s", (char *) payload + 1);
+                _settings->set_mqtt_telemetry_topic(temp_str);
             }
             if (telemetry_topic_callback != nullptr) {
                 telemetry_topic_callback(_settings->get_mqtt_telemetry_topic());
@@ -190,7 +203,8 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
             if (length == 1) {
                 _settings->clear_volume();
             } else if (length == 2 || length == 3) {
-                _settings->set_volume(strtol((char *) payload + 1, nullptr, 10));
+                snprintf(temp_str, length, "%s", (char *) payload + 1);
+                _settings->set_volume(strtol(temp_str, nullptr, 10));
             }
             if (volume_callback != nullptr) {
                 volume_callback(_settings->get_volume());
@@ -199,10 +213,14 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
         case MQTT_COMMAND_SET_ZONES:
             if (length == 1) {
                 _settings->clear_vellez_zones();
-            } else if (length > 1 && length < 6) {
-                _settings->set_vellez_zones(strtol((char *) payload + 1, nullptr, 10));
-            } else if (length == 16) {
-                _settings->set_vellez_zones(strtol((char *) payload + 1, nullptr, 2));
+            } else {
+                snprintf(temp_str, length, "%s", (char *) payload + 1);
+                if (length > 1 && length < 7) {
+                    _settings->set_vellez_zones(strtol(temp_str, nullptr, 10));
+                } else if (length == 17) {
+                    reverse(temp_str, temp_str + 15);
+                    _settings->set_vellez_zones(strtol(temp_str, nullptr, 2));
+                }
             }
             if (zones_callback != nullptr) {
                 zones_callback(_settings->get_vellez_zones());
@@ -213,26 +231,27 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
                 break;
             }
 
-            track_num = strtol((char *) payload + 1, (char **) &track_num_end, 10);
+            snprintf(temp_str, length, "%s", (char *) payload + 1);
+            track_num = strtol(temp_str, (char **) &track_num_end, 10);
 
-            if (length > track_num_end - payload + 1) {
+            if ((int) length > track_num_end - temp_str) {
                 switch (track_num_end[0]) {
                     case 'G':
-                        gong_pos = track_num_end - payload + 1;
+                        gong_pos = track_num_end - temp_str;
                         break;
                     case 'V':
-                        volume_pos = track_num_end - payload + 1;
+                        volume_pos = track_num_end - temp_str;
                         break;
                     case 'Z':
-                        zones_pos = track_num_end - payload + 1;
+                        zones_pos = track_num_end - temp_str;
                         break;
                 }
             }
 
             if (gong_pos != -1) {
-                gong = payload[gong_pos] == MQTT_PARAM_TRUE;
-                if (length > gong_pos + 2) {
-                    switch (payload[gong_pos + 1]) {
+                gong = temp_str[gong_pos] == MQTT_PARAM_TRUE;
+                if ((int) length > gong_pos + 2) {
+                    switch (temp_str[gong_pos + 1]) {
                         case 'V':
                             volume_pos = gong_pos + 2;
                             break;
@@ -244,17 +263,18 @@ void MQTT::callback(const char *topic, uint8_t *payload, unsigned int length) {
             }
 
             if (volume_pos != -1) {
-                volume = strtol((char *) payload + volume_pos, (char **) &volume_end, 10);
-                if (length > volume_end - payload + 1 && volume_end[0] == 'Z') {
-                    zones_pos = volume_end - payload + 1;
+                volume = strtol(temp_str + volume_pos, (char **) &volume_end, 10);
+                if ((int) length > volume_end - temp_str && volume_end[0] == 'Z') {
+                    zones_pos = volume_end - temp_str;
                 }
             }
 
             if (zones_pos != -1) {
-                if (length < (zones_pos + 6)) {
-                    zones = strtol((char *) payload + zones_pos, nullptr, 10);
-                } else if (length == zones_pos + 16) {
-                    zones = strtol((char *) payload + zones_pos, nullptr, 2);
+                if ((int) length < (zones_pos + 6)) {
+                    zones = strtol(temp_str + zones_pos, nullptr, 10);
+                } else if ((int) length == zones_pos + 16) {
+                    reverse(temp_str + zones_pos, temp_str + zones_pos + 15);
+                    zones = strtol(temp_str + zones_pos, nullptr, 2);
                 }
             }
             if (play_callback != nullptr) {
