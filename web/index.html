@@ -360,7 +360,7 @@
     function read_zones() {
         let bin_str = "";
         for (let i of zone_checkboxes) {
-            bin_str = bin_str + i.checked ? "1" : "0";
+            bin_str = (i.checked ? "1" : "0") + bin_str;
         }
         current_zones = parseInt(bin_str, 2);
         all_zones_checkbox.checked = current_zones === 65535;
