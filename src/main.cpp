@@ -38,7 +38,7 @@
 
 #define DFPLAYER_BAUD_RATE 9600
 
-#define FIRMWARE_VERSION "0.1"
+#define FIRMWARE_VERSION "v0.0.1"
 
 bool time_synced = false;
 bool update_checked = false;

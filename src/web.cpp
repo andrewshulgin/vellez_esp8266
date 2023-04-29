@@ -77,7 +77,10 @@ void Web::handle_get_favicon(AsyncWebServerRequest *request) {
 void Web::handle_get_root(AsyncWebServerRequest *request) {
     if (!request->authenticate(_settings->get_web_username(), _settings->get_web_password()))
         return request->requestAuthentication();
-    request->send_P(200, "text/html", webpage);
+    AsyncWebServerResponse *response = request->beginResponse_P(
+            200, " text/html", webpage, sizeof(webpage) / sizeof(webpage[0]));
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
 }
 
 void Web::handle_get_settings(AsyncWebServerRequest *request) {
