@@ -16,7 +16,7 @@ current_dir = os.getcwd()
 src = os.path.join(current_dir, "web/index.html")
 dst = os.path.join(current_dir, "", "src", "webpage.h")
 with open(src, "r") as src_f:
-    minified = minify_html.minify(src_f.read(), minify_js=True)
+    minified = minify_html.minify(src_f.read(), minify_css=True, minify_js=True)
     compressed = gzip.compress(minified.encode("utf-8"))
 with open(dst, "w") as dst_f:
     dst_f.write(HEADER)
